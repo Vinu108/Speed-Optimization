@@ -1,0 +1,29 @@
+{% comment %}
+  Warms the two Searchspring connections that stand between page load and products
+  appearing on collection / search pages.
+
+  Those grids are NOT server-rendered. sections/main-collection-product-grid.liquid
+  emits an empty <div id="searchspring-content"> and Searchspring Snap fills it in the
+  browser, which means the sequence to first product is:
+
+      1. parse HTML
+      2. blocking <script src="snapui.searchspring.io/…/bundle.js">   <- cold DNS + TLS
+      3. bundle runs, requests <site-id>.a.searchspring.io             <- cold DNS + TLS again
+      4. response arrives, preact renders the grid
+
+  Two full connection setups sit on that path, and neither host was preconnected.
+  Opening them early removes the handshakes from the critical path. This changes no
+  behaviour at all — it only means the connections are ready when Snap needs them.
+
+  Emitted only where Searchspring actually renders (collection, search, 404), so the
+  page-wide preconnect budget is not spent on templates that never call it. PageSpeed
+  warns above four preconnects; with the theme down to one (fonts.shopifycdn.com) these
+  two keep it within budget.
+{% endcomment %}
+
+{%- if settings.ss_enable and settings.ss_site_id != blank -%}
+  {%- if template.name == 'collection' or template.name == 'search' or template.name == '404' -%}
+    <link rel="preconnect" href="https://snapui.searchspring.io" crossorigin>
+    <link rel="preconnect" href="https://{{ settings.ss_site_id }}.a.searchspring.io" crossorigin>
+  {%- endif -%}
+{%- endif -%}
