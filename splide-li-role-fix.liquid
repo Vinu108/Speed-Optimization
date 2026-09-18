@@ -1,0 +1,64 @@
+{% comment %}
+  Makes the accessibility tree well-formed for Splide carousels built on <ul>/<li>.
+
+  THE PROBLEM
+  Splide labels each slide role="group", or role="tabpanel" when pagination is on.
+  Neither is a permitted role on <li> — ARIA in HTML allows only listitem (implicit),
+  menuitem, menuitemcheckbox, menuitemradio, option, none, presentation, radio,
+  separator, tab and treeitem. The result is a <ul> whose children are not listitems,
+  which PageSpeed reports as "ARIA role should be appropriate for the element" and
+  "Accessibility tree is not well-formed".
+
+  WHY THIS APPROACH
+  The obvious fix is to render slides as <div>. That was tried and reverted: several
+  stylesheets select these slides via a bare `li` (including nested rules in
+  custom-multicolumn.scss), and swapping an element selector for a class selector also
+  changes specificity from (0,4,1) to (0,5,0), which flips which rule wins against
+  Dawn's own selectors. It broke the homepage layout twice.
+
+  This removes ONLY the offending attribute. The element reverts to its implicit
+  listitem role, the list becomes well-formed, and nothing about the markup, the
+  cascade or the layout changes.
+
+  aria-roledescription="slide" is deliberately KEPT — it is a global attribute, valid
+  on a listitem, so screen readers still announce these as slides.
+
+  Scoped to li.splide__slide only, so <div> based Splide carousels are untouched.
+{% endcomment %}
+
+<script>
+  (function () {
+    function clean(root) {
+      var slides = (root || document).querySelectorAll('li.splide__slide[role]');
+      for (var i = 0; i < slides.length; i++) {
+        var r = slides[i].getAttribute('role');
+        if (r === 'group' || r === 'tabpanel') slides[i].removeAttribute('role');
+      }
+    }
+
+    // Splide sets the role at mount, and again for loop clones and on refresh.
+    // Watch just the role attribute so this stays cheap.
+    try {
+      new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+          var t = records[i].target;
+          if (t.tagName === 'LI' && t.classList.contains('splide__slide')) {
+            var r = t.getAttribute('role');
+            if (r === 'group' || r === 'tabpanel') t.removeAttribute('role');
+          }
+        }
+      }).observe(document.documentElement, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['role']
+      });
+    } catch (e) {}
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { clean(); }, { once: true });
+    } else {
+      clean();
+    }
+    window.addEventListener('load', function () { clean(); }, { once: true });
+  })();
+</script>
