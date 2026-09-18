@@ -1,1 +1,51 @@
 
+{% comment %}
+  Preloads the homepage hero (the LCP element) from inside <head>.
+
+  Why this exists: sections/slideshow.liquid already emits a correctly-formed preload,
+  but a section renders in the <body>. On this store that put it ~334 KB past </head>,
+  behind a 522 KB head, the cart drawer and a 310 KB header. The preload scanner did
+  not reach it until late, which showed up in PageSpeed as:
+
+      Time to first byte        620 ms
+      Resource load delay     1,260 ms   <- discovery, not download
+      Resource load duration     40 ms   <- the image itself is fast
+      Element render delay      750 ms
+
+  Emitting the same preload at the very top of <head> lets the preload scanner start
+  the fetch almost immediately, which is what that 1,260 ms is made of.
+
+  The href / imagesrcset / imagesizes / media here MUST stay identical to the <img>
+  that sections/slideshow.liquid renders, or the browser treats it as a different
+  resource, ignores the preload and downloads the image twice. The widths below mirror
+  that section's image_tag widths exactly.
+
+  MAINTENANCE: these settings must point at slide 1 of the homepage slideshow. If the
+  first slide is changed in the theme editor, update Theme settings > Hero preload too.
+  When either setting is blank nothing is emitted and behaviour is exactly as before.
+{% endcomment %}
+
+{%- if template.name == 'index' -%}
+  {%- if settings.hero_preload_desktop != blank -%}
+    <link
+      rel="preload"
+      as="image"
+      href="{{ settings.hero_preload_desktop | image_url: width: 1780 }}"
+      imagesrcset="{{ settings.hero_preload_desktop | image_url: width: 375 }} 375w, {{ settings.hero_preload_desktop | image_url: width: 550 }} 550w, {{ settings.hero_preload_desktop | image_url: width: 750 }} 750w, {{ settings.hero_preload_desktop | image_url: width: 1100 }} 1100w, {{ settings.hero_preload_desktop | image_url: width: 1500 }} 1500w, {{ settings.hero_preload_desktop | image_url: width: 1780 }} 1780w, {{ settings.hero_preload_desktop | image_url: width: 2000 }} 2000w, {{ settings.hero_preload_desktop | image_url: width: 3000 }} 3000w, {{ settings.hero_preload_desktop | image_url: width: 3840 }} 3840w"
+      imagesizes="100vw"
+      fetchpriority="high"
+      media="(min-width: 750px)"
+    >
+  {%- endif -%}
+  {%- if settings.hero_preload_mobile != blank -%}
+    <link
+      rel="preload"
+      as="image"
+      href="{{ settings.hero_preload_mobile | image_url: width: 750 }}"
+      imagesrcset="{{ settings.hero_preload_mobile | image_url: width: 375 }} 375w, {{ settings.hero_preload_mobile | image_url: width: 430 }} 430w, {{ settings.hero_preload_mobile | image_url: width: 550 }} 550w, {{ settings.hero_preload_mobile | image_url: width: 750 }} 750w, {{ settings.hero_preload_mobile | image_url: width: 860 }} 860w, {{ settings.hero_preload_mobile | image_url: width: 1000 }} 1000w"
+      imagesizes="100vw"
+      fetchpriority="high"
+      media="(max-width: 749px)"
+    >
+  {%- endif -%}
+{%- endif -%}
